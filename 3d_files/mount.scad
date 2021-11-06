@@ -106,26 +106,46 @@ module adapter(){
     // bar is 28mm in diameter
     // servo-wheel is 21.5mm in diameter
     difference(){
-        cylinder(r=28/2+1, h=10);
-        translate([0,0,1])
-        cylinder(r=28/2, h=10);
-    }
-    
-    translate([0,0,-2])
-    difference(){
-        cylinder(r=21.5/2+1, h=2);
-        translate([0,0,-1])
-        cylinder(r=21.5/2, h=2);
+        union(){
+            difference(){
+                cylinder(r=28/2+1.8, h=10);
+                translate([0,0,1])
+                cylinder(r=28/2+.25, h=10);
+                
+                translate([0,50,5])
+                rotate([90,0,0])
+                cylinder(r=1, h=100);
+            }
+            
+            translate([0,0,-10])
+            difference(){
+                cylinder(r1=21.5/2, r2=28/2+1.8, h=10);
+
+                translate([0,7,-0.1])
+                cylinder(r=1, h=10);
+                
+                translate([0,-7,-0.1])
+                cylinder(r=1, h=10);
+                
+                translate([7,0,-0.1])
+                cylinder(r=1, h=10);        
+                
+                translate([-7,0,-0.1])
+                cylinder(r=1, h=10);
+            }
+        }
+     translate([0,0,-20])
+     cylinder(r=4, h=100);
     }
 }
 
 //mount();
 //translate([0,0,500])
-mount_passive();
+//mount_passive();
 
 //#servo();
 
-//adapter();
+adapter();
 /*
 
 # translate([0,0,50]) cylinder(r=28/2, h=450);
