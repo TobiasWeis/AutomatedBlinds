@@ -1,6 +1,3 @@
-update=Sam 27 Jän 2018 22:29:20 CET
-version=1
-last_client=kicad
 [pcbnew]
 version=1
 LastNetListRead=

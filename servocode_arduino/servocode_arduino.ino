@@ -1,15 +1,34 @@
 #include <Servo.h> 
-#include "Adafruit_VL53L0X.h"
+//#include "Adafruit_VL53L0X.h"
+#include <Adafruit_SSD1306.h>
+#include <Wire.h>
+#include <VL53L0X.h>  // VL53L0X by Polulu
 
-const uint8_t pin_servo = PD3;
-const uint8_t pin_xshut_up = PD7;
-const uint8_t pin_xshut_down = PD4;
-const uint8_t pin_btn_down = PD6;
-const uint8_t pin_btn_up = PD2;
+#define DISPLAY_W 128
+#define DISPLAY_H 64
+
+#define DISPLAY_I2C_ADDRESS 0x3C
+
+#define lox_lower_addr 42
+#define lox_upper_addr 41
+
+const uint8_t pin_servo = 3;
+
+const uint8_t pin_xshut_upper = 11;
+
+const uint8_t pin_btn_1 = A1;
+const uint8_t pin_btn_2 = A0;
+
+int state = 0;  // oben
+
+
+//------- Display
+Adafruit_SSD1306 display(DISPLAY_W, DISPLAY_H, &Wire);
  
 //------- TOFs
-Adafruit_VL53L0X lox_up = Adafruit_VL53L0X();
-Adafruit_VL53L0X lox_down = Adafruit_VL53L0X();
+//Adafruit_VL53L0X lox_up = Adafruit_VL53L0X();
+VL53L0X lox_lower; // = Adafruit_VL53L0X();
+VL53L0X lox_upper;
 
 //------- Servo
 Servo serv;
@@ -17,96 +36,65 @@ short dir = 0; // -1: down, 1: up
  
 void setup() { 
   Serial.begin(9600);
-    pinMode(pin_btn_down, INPUT_PULLUP);
-    pinMode(pin_btn_up, INPUT_PULLUP);
-    pinMode(pin_xshut_up, OUTPUT);
-    pinMode(pin_xshut_down, OUTPUT);
+  Wire.begin();
+  
+  pinMode(pin_btn_1, INPUT_PULLUP);
 
-    digitalWrite(pin_xshut_up, LOW);
-    digitalWrite(pin_xshut_down, LOW);
-    delay(500);
+  pinMode(pin_xshut_upper, OUTPUT);
+  digitalWrite(pin_xshut_upper, LOW);
 
-    digitalWrite(pin_xshut_up, HIGH);
-    digitalWrite(pin_xshut_down, HIGH);
-    delay(500);
+  delay(100);
+  
+  lox_lower.init();
+  lox_lower.setAddress(lox_lower_addr);  // set address of upper
 
-    // LOW means off
-    digitalWrite(pin_xshut_up, LOW);
-    digitalWrite(pin_xshut_down, LOW);
-    delay(500);
+  pinMode(pin_xshut_upper, INPUT);
+  delay(50);
+  lox_upper.init();
+  
+  lox_lower.setTimeout(500);
+  lox_upper.setTimeout(500);
 
-    digitalWrite(pin_xshut_up, HIGH);
-    delay(10);
-    
-    if (!lox_up.begin(0x30)) {
-      Serial.println(F("Failed to boot LOX_UP"));
-      while(1);
-    }
-    delay(10);
-    
-    // activate the second    
-    digitalWrite(pin_xshut_down, HIGH);
-    delay(10);
-    
-    if (!lox_down.begin(0x31)) {
-      Serial.println(F("Failed to boot LOX_DOWN"));
-      while(1);
-    }
+  if (display.begin(SSD1306_SWITCHCAPVCC, DISPLAY_I2C_ADDRESS)) {
+    //display.setRotation(1);
+    display.clearDisplay();      // Display(puffer) löschen
+    display.setTextSize(1);      // kleine Schriftgröße (Höhe 8px)
+    display.setTextColor(WHITE); // helle Schrift, dunkler Grund)
+    display.setCursor(0, 0);     // links oben anfangen
+    display.println("Starting up");
+    display.display();
+  }
 } 
  
  
 void loop() {  
-  VL53L0X_RangingMeasurementData_t measurement;
+
+  int button_state = digitalRead(pin_btn_1);
+  Serial.println("Got Button-state");
   
-  if(digitalRead(pin_btn_down) == LOW){
-    if(!serv.attached()){
-      Serial.println(F("Button down pressed"));
-      
-    // check lower sensor: only drive if lower sensor is free
-    lox_down.rangingTest(&measurement, false);
-    if(measurement.RangeMilliMeter > 150 || measurement.RangeStatus == 4){ // above 15cm or out of range
-        dir = -1;
-        Serial.println(F("Button down: set dir to -1"));
-      }else{
-        Serial.println(F("Button down: NOP: sensor not free"));
-      }
+  int d_lower = lox_lower.readRangeSingleMillimeters();
+  if (lox_lower.timeoutOccurred()) {
+    Serial.println("Timeout in lox low!");
+  }
+
+  int d_upper = lox_upper.readRangeSingleMillimeters();
+  if (lox_upper.timeoutOccurred()) {
+    Serial.println("Timeout in lox up!");
+  }
+  
+  // react to buttons and sensors
+  if(button_state == LOW && !serv.attached()){
+    if(state == 0){ // war oben
+      state = 1;
+      dir = -1;
+    }else if(state == 1){ // war unten
+      state = 0;
+      dir = 1;
     }
+  }else if(button_state == HIGH){
+    dir = 0;
   }
 
-  if(digitalRead(pin_btn_up) == LOW){
-    if(!serv.attached()){
-      Serial.println(F("Button up pressed"));
-      // check upper sensor: only drive if upper sensor is occupied
-      lox_up.rangingTest(&measurement, false);
-      if(measurement.RangeMilliMeter <= 150 && measurement.RangeStatus != 4){ // above 15cm or out of range     
-        dir = 1;
-        Serial.println(F("Button up: set dir to 1"));
-      }else{
-        Serial.println(F("Buttn up: NOP: sensor is free"));
-      }
-    }
-  }
-
-  // check the sensor while driving down
-  if(dir == -1 && serv.attached()){
-    // check sensor
-      lox_down.rangingTest(&measurement, false);
-      if(measurement.RangeMilliMeter <= 150){
-        Serial.println(F("Stop driving down, lower sensor triggered"));
-        dir = 0; // stop again
-        delay(500); // let it go a little beyond the sensor
-      }
-  }
-
-  // check the sensor while driving up
-  if(dir == 1 && serv.attached()){
-    // check sensor
-      lox_up.rangingTest(&measurement, false);
-      if(measurement.RangeMilliMeter > 150 || measurement.RangeStatus == 4){
-        Serial.println(F("Stop driving up, upper sensor is free"));
-        dir = 0; // stop again
-      }
-  }
 
   if(dir == -1){
     if(!serv.attached()){
@@ -131,4 +119,32 @@ void loop() {
     }
   }
 
+  display.clearDisplay();
+  display.setCursor(0, 0);
+
+  display.print("SLo: ");
+  display.print(d_lower);
+  display.println(" mm");
+
+  display.print("SUp: ");
+  display.print(d_upper);
+  display.println(" mm");
+
+  display.println();
+  
+  display.print("B1: ");
+  display.println(button_state);
+
+  display.println();
+  
+  display.print("state: ");
+  display.println(state);
+
+  display.println();
+
+  display.print("dir: ");
+  display.println(dir);
+  
+  display.display();
+  
 } 

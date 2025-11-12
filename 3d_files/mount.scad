@@ -1,3 +1,6 @@
+//include </home/weis/code/3designs/skadis/hook.scad>;
+use <MCAD/teardrop.scad>;
+
 $fn=128;
 
 depth = 10;
@@ -61,6 +64,38 @@ module mount(){
     }
 }
 
+module mount_new(){
+    // skadis-hooks
+    translate([40+32-tolerance-40, 80, 65])
+    rotate([0, 90])
+    clippy_oval();
+    
+    translate([40+32-tolerance, 80, 65])
+    rotate([0, 90])
+    clippy_oval();
+    
+    // housing/mount
+    difference(){
+        union(){
+            // servoblock
+            translate([10.5, 0, 25.5])
+            cube([65, 30, 10], center=true);
+            
+            hull(){    
+                translate([10.5, 15, 25.5])
+                cube([65, 0.1, 10], center=true);
+
+                // wand-halterung
+                translate([29.5, 80, 60])
+                cube([55, 0.1, 10]);
+            }
+        }
+        
+        scale([1.05, 1.05, 1.05])
+        #servo();
+    }
+}
+
 module mount_passive(){
     // bar should be 9 cm from wall
     // wall
@@ -107,7 +142,8 @@ module adapter(){
     // servo-wheel is 21.5mm in diameter
     difference(){
         union(){
-            difference(){
+            /*
+            #difference(){
                 cylinder(r=28/2+1.8, h=10);
                 translate([0,0,1])
                 cylinder(r=28/2+.25, h=10);
@@ -115,37 +151,73 @@ module adapter(){
                 translate([0,50,5])
                 rotate([90,0,0])
                 cylinder(r=1, h=100);
+            }*/
+            
+            difference(){
+                union(){
+                    cylinder(r=21.5/2, h=13);
+                    translate([0,0,13])
+                    cylinder(r1=21.5/2, r2=14/2, h=3);
+                }
+                cylinder(r=4.2, h=25);
             }
             
-            translate([0,0,-10])
-            difference(){
-                cylinder(r1=21.5/2, r2=28/2+1.8, h=10);
+            translate([0,0,-7])
+            cylinder(r=21.5/2, h=7);
 
-                translate([0,7,-0.1])
-                cylinder(r=1, h=10);
-                
-                translate([0,-7,-0.1])
-                cylinder(r=1, h=10);
-                
-                translate([7,0,-0.1])
-                cylinder(r=1, h=10);        
-                
-                translate([-7,0,-0.1])
-                cylinder(r=1, h=10);
-            }
         }
+        
+
+     // Gewindestange
      translate([0,0,-20])
      cylinder(r=4, h=100);
+        
+    // Schraublöcher Servoholm
+    translate([0,7,-7.1])
+    cylinder(r=1, h=8);
+    
+    #translate([0,-7,-7.1])
+    cylinder(r=1, h=8);
+    
+    translate([7,0,-7.1])
+    cylinder(r=1, h=8);        
+    
+    translate([-7,0,-7.1])
+    cylinder(r=1, h=8);
+       
+
+    // schraublöcher halteschrauben gewindestange
+    for(z=[9]){
+                /*translate([0,50,z])
+                rotate([90,0,0])
+                cylinder(r=1.4, h=100);*/
+                
+                translate([0,0,z])
+                teardrop(1.5, 100, 90);
+                //cylinder(r=1.4, h=100);
+        
+                translate([-17,0,z])
+                rotate([90,0,90])
+                cylinder(r=3.6, h=10);
+        
+                translate([7,0,z])
+                rotate([0,90,0])
+                cylinder(r=3.1, h=10, $fn=6);
+            }
     }
 }
 
+adapter();
+
 //mount();
+
+//mount_new();
 //translate([0,0,500])
 //mount_passive();
 
 //#servo();
 
-adapter();
+//adapter();
 /*
 
 # translate([0,0,50]) cylinder(r=28/2, h=450);
